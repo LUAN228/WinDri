@@ -29,23 +29,30 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Compilar APK usando Gradle Wrapper NATIVO
+      - name: Instalar Android NDK e CMake
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 8512546
+          accept-android-sdk-licenses: true
+
+      - name: Instalar componentes do SDK/NDK
         run: |
-          # Procura onde está o wrapper do Gradle local (gradlew)
+          sdkmanager --install "ndk;25.2.9519653" "cmake;3.22.1" "build-tools;33.0.2"
+
+      - name: Executar Build pelo Gradle Wrapper
+        run: |
           GRADLEW_PATH=$(find . -name "gradlew" -type f | head -n 1)
-          
           if [ -n "$GRADLEW_PATH" ]; then
             TARGET_DIR=$(dirname "$GRADLEW_PATH")
-            echo "Acessando diretório do Wrapper: $TARGET_DIR"
             cd "$TARGET_DIR"
             chmod +x ./gradlew
             ./gradlew assembleDebug --stacktrace
           else
-            echo "Erro: gradlew não foi encontrado no projeto!"
+            echo "Erro: gradlew não foi encontrado!"
             exit 1
           fi
 
-      - name: Disponibilizar o APK para Download (Artifact)
+      - name: Disponibilizar o APK para Download
         uses: actions/upload-artifact@v4
         with:
           name: WinDri-Debug-APK
