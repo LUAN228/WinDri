@@ -14,16 +14,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Clona o repositório atual
       - name: Checkout Repositório Principal
         uses: actions/checkout@v4
 
-      # 2. Clona a pasta/projeto secundário (winDri-app / app) na pasta correta
       - name: Checkout Módulo do App
         uses: actions/checkout@v4
         with:
-          repository: LUAN228/winDri-app # Nome do seu outro repositório forkado
-          path: app # Ajuste este caminho se a pasta precisar ter outro nome no projeto
+          repository: LUAN228/winDri-app
+          path: app
 
       - name: Configurar Java (JDK 17)
         uses: actions/setup-java@v4
@@ -31,17 +29,17 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Dar permissão de execução ao Gradle
+      - name: Encontrar pasta com Gradle e Compilar
         run: |
+          # Encontra a pasta onde está o arquivo settings.gradle ou build.gradle
+          TARGET_DIR=$(dirname $(find . -name "settings.gradle" -o -name "build.gradle" | head -n 1))
+          
+          echo "Entrando na pasta do projeto: $TARGET_DIR"
+          cd "$TARGET_DIR"
+
+          # Executa o build usando o wrapper local se existir, ou o gradle do sistema
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-          elif [ -f "./app/gradlew" ]; then
-            chmod +x ./app/gradlew
-          fi
-
-      - name: Compilar APK (Debug)
-        run: |
-          if [ -f "./gradlew" ]; then
             ./gradlew assembleDebug --stacktrace
           else
             gradle assembleDebug --stacktrace
