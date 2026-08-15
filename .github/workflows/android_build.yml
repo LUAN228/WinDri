@@ -24,25 +24,25 @@ jobs:
           path: app
 
       - name: Configurar Java (JDK 17)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Encontrar pasta com Gradle e Compilar
+      - name: Compilar APK usando Gradle Wrapper NATIVO
         run: |
-          # Encontra a pasta onde está o arquivo settings.gradle ou build.gradle
-          TARGET_DIR=$(dirname $(find . -name "settings.gradle" -o -name "build.gradle" | head -n 1))
+          # Procura onde está o wrapper do Gradle local (gradlew)
+          GRADLEW_PATH=$(find . -name "gradlew" -type f | head -n 1)
           
-          echo "Entrando na pasta do projeto: $TARGET_DIR"
-          cd "$TARGET_DIR"
-
-          # Executa o build usando o wrapper local se existir, ou o gradle do sistema
-          if [ -f "./gradlew" ]; then
+          if [ -n "$GRADLEW_PATH" ]; then
+            TARGET_DIR=$(dirname "$GRADLEW_PATH")
+            echo "Acessando diretório do Wrapper: $TARGET_DIR"
+            cd "$TARGET_DIR"
             chmod +x ./gradlew
             ./gradlew assembleDebug --stacktrace
           else
-            gradle assembleDebug --stacktrace
+            echo "Erro: gradlew não foi encontrado no projeto!"
+            exit 1
           fi
 
       - name: Disponibilizar o APK para Download (Artifact)
