@@ -52,7 +52,7 @@ jobs:
           echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
           echo "ANDROID_HOME=$SDK_ROOT" >> $GITHUB_ENV
 
-      - name: Executar Compilação do APK
+      - name: Executar Compilação do APK Silenciosa
         run: |
           GRADLEW_PATH=$(find . -name "gradlew" -type f | head -n 1)
           if [ -n "$GRADLEW_PATH" ]; then
@@ -61,6 +61,7 @@ jobs:
             chmod +x ./gradlew
             
             ./gradlew assembleDebug \
+              -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS=-w -DCMAKE_CXX_FLAGS=-w" \
               -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
               --warning-mode=none \
               --console=plain
