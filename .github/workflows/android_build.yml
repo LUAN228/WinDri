@@ -60,11 +60,11 @@ jobs:
             cd "$TARGET_DIR"
             chmod +x ./gradlew
             
+            # Filtra linhas repetitivas de C/C++ permitindo ver o progresso e erros reais
             ./gradlew assembleDebug \
               -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS='-w' -DCMAKE_CXX_FLAGS='-w' -DCMAKE_POLICY_DEFAULT_CMP0000=OLD" \
               -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
-              --warning-mode=none \
-              --console=plain
+              --quiet --console=plain 2>&1 | grep -E -v "C/C\+\+|\[[0-9]+/[0-9]+\]" || true
           else
             echo "Erro: gradlew não foi encontrado!"
             exit 1
