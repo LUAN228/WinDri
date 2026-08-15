@@ -70,7 +70,7 @@ jobs:
             exit 1
           fi
 
-            - name: Upload do APK Gerado
+      - name: Upload do APK Gerado
         if: success()
         uses: actions/upload-artifact@v4
         with:
