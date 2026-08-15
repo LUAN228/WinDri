@@ -61,7 +61,7 @@ jobs:
             chmod +x ./gradlew
             
             ./gradlew assembleDebug \
-              -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS=-w -DCMAKE_CXX_FLAGS=-w" \
+              -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS='-w' -DCMAKE_CXX_FLAGS='-w' -DCMAKE_POLICY_DEFAULT_CMP0000=OLD" \
               -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
               --warning-mode=none \
               --console=plain
