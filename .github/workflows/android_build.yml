@@ -60,12 +60,11 @@ jobs:
             cd "$TARGET_DIR"
             chmod +x ./gradlew
             
-            # Removemos o --quiet para ver erros reais do Java, mas mantemos o filtro de C/C++
-            set -o pipefail
+            # Força o compilador C/C++ a suprimir totalmente os avisos (warnings e notes)
             ./gradlew assembleDebug \
-              -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS='-w' -DCMAKE_CXX_FLAGS='-w' -DCMAKE_POLICY_DEFAULT_CMP0000=OLD" \
+              -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS=-w -DCMAKE_CXX_FLAGS=-w" \
               -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
-              --console=plain | grep -E -v "C/C\+\+|\[[0-9]+/[0-9]+\]"
+              --console=plain
           else
             echo "Erro: gradlew não foi encontrado!"
             exit 1
