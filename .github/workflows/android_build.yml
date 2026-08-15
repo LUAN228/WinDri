@@ -60,20 +60,18 @@ jobs:
             cd "$TARGET_DIR"
             chmod +x ./gradlew
             
-            # Força o compilador C/C++ a suprimir totalmente os avisos (warnings e notes)
+            # Injeta flags de silenciamento do C/C++ direto na variável do CMake no Gradle
             ./gradlew assembleDebug \
-              -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS=-w -DCMAKE_CXX_FLAGS=-w" \
+              -Pandroid.compileOptions.encoding=UTF-8 \
               -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
+              -Pandroid.injected.build.model.only.advanced=false \
+              -Pandroid.native.build.quiet=true \
+              -Pandroid.cppFlags="-w" \
               --console=plain
           else
             echo "Erro: gradlew não foi encontrado!"
             exit 1
           fi
-
-      - name: Procurar APKs Criados
-        run: |
-          echo "=== Lista de APKs gerados no servidor ==="
-          find . -name "*.apk" -type f
 
       - name: Upload do APK Gerado
         uses: actions/upload-artifact@v4
