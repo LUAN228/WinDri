@@ -52,7 +52,7 @@ jobs:
           echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
           echo "ANDROID_HOME=$SDK_ROOT" >> $GITHUB_ENV
 
-      - name: Executar Compilação do APK Silenciosa
+      - name: Executar Compilação do APK
         run: |
           GRADLEW_PATH=$(find . -name "gradlew" -type f | head -n 1)
           if [ -n "$GRADLEW_PATH" ]; then
@@ -60,18 +60,23 @@ jobs:
             cd "$TARGET_DIR"
             chmod +x ./gradlew
             
-            # Filtra linhas repetitivas de C/C++ permitindo ver o progresso e erros reais
+            # Removemos o --quiet para ver erros reais do Java, mas mantemos o filtro de C/C++
+            set -o pipefail
             ./gradlew assembleDebug \
               -Pandroid.nativeBuildOptions="-DCMAKE_C_FLAGS='-w' -DCMAKE_CXX_FLAGS='-w' -DCMAKE_POLICY_DEFAULT_CMP0000=OLD" \
               -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
-              --quiet --console=plain 2>&1 | grep -E -v "C/C\+\+|\[[0-9]+/[0-9]+\]" || true
+              --console=plain | grep -E -v "C/C\+\+|\[[0-9]+/[0-9]+\]"
           else
             echo "Erro: gradlew não foi encontrado!"
             exit 1
           fi
 
+      - name: Procurar APKs Criados
+        run: |
+          echo "=== Lista de APKs gerados no servidor ==="
+          find . -name "*.apk" -type f
+
       - name: Upload do APK Gerado
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: WinDri-Debug-APK
