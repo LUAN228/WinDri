@@ -14,12 +14,13 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Repositório Principal
+      - name: Checkout Repositório Principal e Submódulos
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
-      - name: Checkout Módulo do App e Submódulos
+      - name: Checkout Módulo do App
         uses: actions/checkout@v4
         with:
           repository: LUAN228/winDri-app
@@ -33,8 +34,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Instalar Android NDK e CMake
+      - name: Instalar Ferramentas do Sistema e NDK
         run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build gettext
+          
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
           mkdir -p "$SDK_ROOT"
           if [ ! -f "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
@@ -48,20 +52,25 @@ jobs:
           echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
           echo "ANDROID_HOME=$SDK_ROOT" >> $GITHUB_ENV
 
-      - name: Executar Build pelo Gradle Wrapper
+      - name: Executar Compilação do APK
         run: |
           GRADLEW_PATH=$(find . -name "gradlew" -type f | head -n 1)
           if [ -n "$GRADLEW_PATH" ]; then
             TARGET_DIR=$(dirname "$GRADLEW_PATH")
             cd "$TARGET_DIR"
             chmod +x ./gradlew
-            ./gradlew assembleDebug --stacktrace
+            
+            ./gradlew assembleDebug \
+              -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m" \
+              --warning-mode=none \
+              --console=plain
           else
             echo "Erro: gradlew não foi encontrado!"
             exit 1
           fi
 
-      - name: Disponibilizar o APK para Download
+      - name: Upload do APK Gerado
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: WinDri-Debug-APK
