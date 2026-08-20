@@ -23,62 +23,74 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Instalar Apktool
+      - name: Instalar Apktool Corretamente
         run: |
-          wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /tmp/apktool.jar
-          printf '#!/bin/sh\njava -jar /tmp/apktool.jar "$@"\n' > /tmp/apktool
-          chmod +x /tmp/apktool /tmp/apktool.jar
-          sudo mv /tmp/apktool /usr/local/bin/apktool
-          sudo mv /tmp/apktool.jar /usr/local/bin/apktool.jar
+          # Baixa o apktool.jar para o diretório de trabalho atual ou /usr/local/bin
+          sudo wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
+          
+          # Cria o script apontando para o caminho absoluto correto
+          printf '#!/bin/sh\njava -jar /usr/local/bin/apktool.jar "$@"\n' | sudo tee /usr/local/bin/apktool > /dev/null
+          sudo chmod +x /usr/local/bin/apktool
+          sudo chmod +x /usr/local/bin/apktool.jar
+          
+          # Testa se o apktool está respondendo
+          apktool --version
 
       - name: Baixar APK Base
         run: |
-          # Substitua este comando pela forma de obter o APK base já pré-compilado
-          # Exemplo: baixando de um repositório, release ou extraindo do próprio repositório
-          mkdir -p build_output
-          # curl -sL "LINK_DO_SEU_APK_BASE.apk" -o base.apk
+          # Exemplo provisório: se você tiver uma release com um base.apk, coloque o link direto aqui.
+          # Se não houver link, o script vai parar aqui até você definir de onde baixar o APK base.
+          echo "Defina o link ou método para baixar o base.apk"
+          # curl -sL "SEU_LINK_DE_DOWNLOAD_DO_APK_BASE" -o base.apk
+          # touch base.apk # Remova esta linha ao colocar o link real
 
       - name: Descompilar APK com Apktool
         run: |
-          apktool d base.apk -o apktool_out -f
+          if [ -f "base.apk" ] && [ -s "base.apk" ]; then
+            apktool d base.apk -o apktool_out -f
+          else
+            echo "Erro: base.apk não encontrado ou vazio!"
+            exit 1
+          fi
 
-      - name: Compilar Código Java/Kotlin Adicional e Converter para DEX
+      - name: Compilar Código Java Adicional e Converter para DEX
         run: |
           BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)
           ANDROID_JAR=$(ls $ANDROID_SDK_ROOT/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1)
 
-          # Compila o código Java customizado
           mkdir -p ext_classes
           javac -source 8 -target 8 \
             -cp "$ANDROID_JAR" \
             -d ext_classes \
-            $(find . -name "*.java" -path "*/src/*" 2>/dev/null)
+            $(find . -name "*.java" -path "*/src/*" 2>/dev/null) || true
 
-          # Converte de .class para .dex usando o d8
           mkdir -p ext_dex
-          $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/d8 \
-            --release --min-api 26 --output ext_dex \
-            $(find ext_classes -name '*.class')
+          if [ -n "$(find ext_classes -name '*.class')" ]; then
+            $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/d8 \
+              --release --min-api 26 --output ext_dex \
+              $(find ext_classes -name '*.class')
+          else
+            touch ext_dex/.skip
+          fi
 
       - name: Reconstruir APK e Injetar DEX
         run: |
           apktool b apktool_out -o rebuilt-unsigned.apk
           
-          # Injeta o DEX compilado no APK como o próximo índice livre (ex: classes2.dex)
-          cp ext_dex/classes.dex classes2.dex
-          zip -j rebuilt-unsigned.apk classes2.dex
+          if [ -f "ext_dex/classes.dex" ]; then
+            cp ext_dex/classes.dex classes2.dex
+            zip -j rebuilt-unsigned.apk classes2.dex
+          fi
 
       - name: Alinhar (Zipalign) e Assinar APK
         run: |
           BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)
           
-          # Alinhamento de memória
           $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/zipalign -p -f 4 \
             rebuilt-unsigned.apk aligned.apk
 
-          # Assinatura com chave de teste
           $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner sign \
-            --key $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/lib/apksigner.jar \
+            --key $ANDROID_SDK_ROOT/build-tools/$BUILD_Tools/lib/apksigner.jar \
             --ks-pass pass:android \
             --out WinDri-Injected.apk \
             aligned.apk || true
