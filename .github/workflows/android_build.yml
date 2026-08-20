@@ -1,4 +1,4 @@
-name: Build WinDri (Dex Injection)
+name: Build WinDri APK (Gradle)
 
 on:
   push:
@@ -12,10 +12,19 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Repositório
+      - name: Checkout Repositório e Submódulos
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Checkout Módulo do App
+        uses: actions/checkout@v4
+        with:
+          repository: LUAN228/winDri-app
+          path: app
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
@@ -23,80 +32,27 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Instalar Apktool Corretamente
-        run: |
-          # Baixa o apktool.jar para o diretório de trabalho atual ou /usr/local/bin
-          sudo wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
-          
-          # Cria o script apontando para o caminho absoluto correto
-          printf '#!/bin/sh\njava -jar /usr/local/bin/apktool.jar "$@"\n' | sudo tee /usr/local/bin/apktool > /dev/null
-          sudo chmod +x /usr/local/bin/apktool
-          sudo chmod +x /usr/local/bin/apktool.jar
-          
-          # Testa se o apktool está respondendo
-          apktool --version
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Baixar APK Base
+      - name: Dar Permissão e Compilar APK
         run: |
-          # Exemplo provisório: se você tiver uma release com um base.apk, coloque o link direto aqui.
-          # Se não houver link, o script vai parar aqui até você definir de onde baixar o APK base.
-          echo "Defina o link ou método para baixar o base.apk"
-          # curl -sL "SEU_LINK_DE_DOWNLOAD_DO_APK_BASE" -o base.apk
-          # touch base.apk # Remova esta linha ao colocar o link real
-
-      - name: Descompilar APK com Apktool
-        run: |
-          if [ -f "base.apk" ] && [ -s "base.apk" ]; then
-            apktool d base.apk -o apktool_out -f
+          # Procura o diretório onde o gradlew está localizado
+          GRADLEW_PATH=$(find . -name "gradlew" -type f | head -n 1)
+          if [ -n "$GRADLEW_PATH" ]; then
+            TARGET_DIR=$(dirname "$GRADLEW_PATH")
+            cd "$TARGET_DIR"
+            chmod +x ./gradlew
+            
+            # Roda o build padrão focando apenas na depuração
+            ./gradlew assembleDebug --no-daemon
           else
-            echo "Erro: base.apk não encontrado ou vazio!"
+            echo "Erro: gradlew não foi encontrado!"
             exit 1
           fi
 
-      - name: Compilar Código Java Adicional e Converter para DEX
-        run: |
-          BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)
-          ANDROID_JAR=$(ls $ANDROID_SDK_ROOT/platforms/android-*/android.jar 2>/dev/null | sort -V | tail -1)
-
-          mkdir -p ext_classes
-          javac -source 8 -target 8 \
-            -cp "$ANDROID_JAR" \
-            -d ext_classes \
-            $(find . -name "*.java" -path "*/src/*" 2>/dev/null) || true
-
-          mkdir -p ext_dex
-          if [ -n "$(find ext_classes -name '*.class')" ]; then
-            $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/d8 \
-              --release --min-api 26 --output ext_dex \
-              $(find ext_classes -name '*.class')
-          else
-            touch ext_dex/.skip
-          fi
-
-      - name: Reconstruir APK e Injetar DEX
-        run: |
-          apktool b apktool_out -o rebuilt-unsigned.apk
-          
-          if [ -f "ext_dex/classes.dex" ]; then
-            cp ext_dex/classes.dex classes2.dex
-            zip -j rebuilt-unsigned.apk classes2.dex
-          fi
-
-      - name: Alinhar (Zipalign) e Assinar APK
-        run: |
-          BUILD_TOOLS=$(ls $ANDROID_SDK_ROOT/build-tools | sort -V | tail -1)
-          
-          $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/zipalign -p -f 4 \
-            rebuilt-unsigned.apk aligned.apk
-
-          $ANDROID_SDK_ROOT/build-tools/$BUILD_TOOLS/apksigner sign \
-            --key $ANDROID_SDK_ROOT/build-tools/$BUILD_Tools/lib/apksigner.jar \
-            --ks-pass pass:android \
-            --out WinDri-Injected.apk \
-            aligned.apk || true
-
-      - name: Upload do APK Final
+      - name: Enviar APK Gerado para as Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: WinDri-Injected-APK
-          path: '*.apk'
+          name: WinDri-Debug-APK
+          path: '**/build/outputs/apk/debug/*.apk'
